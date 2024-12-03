@@ -1,8 +1,13 @@
 // Import functionalities we'll be using
+mod sqlite;
+use chrono;
+use std::process;
 use std::sync::Mutex;
 use tauri::async_runtime::spawn;
 use tauri::{AppHandle, Manager, State};
 use tokio::time::{sleep, Duration};
+
+use sqlite::ProductRepository;
 
 // Create a struct we'll use to track the completion of
 // setup related tasks
@@ -72,8 +77,29 @@ async fn set_complete(
 
 // An async function that does some heavy setup task
 async fn setup(app: AppHandle) -> Result<(), ()> {
-    // Fake performing some heavy action for 3 seconds
+    
     println!("Performing really heavy backend setup task...");
+    let conn = sqlite::new_db().unwrap_or_else(|err| {
+        eprintln!("Error creating db connection: {err}");
+        process::exit(1)
+    }); 
+    sqlite::table_migrations(&conn);
+
+    let product = sqlite::Product { 
+        id: 0,
+        name: "test".to_string(), 
+        base_price: 0, 
+        created_at: chrono::Utc::now(), 
+        updated_at: chrono::Utc::now()
+    };
+
+    match conn.insert_product(product) {
+        Ok(_) => println!("Product created successfully"),
+        Err(e) => eprintln!("Error creating product: {}", e),
+    }
+
+    // Fake performing some heavy action for 3 seconds
+    // sqlite::run_sqlite();
     sleep(Duration::from_secs(3)).await;
     println!("Backend setup task completed!");
     // Set the backend task as being completed
