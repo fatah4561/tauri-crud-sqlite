@@ -61,6 +61,7 @@ pub fn table_migrations(conn: &Connection) -> Result<()> {
 
 pub trait ProductRepository {
     fn insert_product(&self, product: Product) -> Result<()>;
+    fn get_all_products(&self) -> Result<Vec<Product>>;
 }
 
 impl ProductRepository for Connection {
@@ -74,40 +75,48 @@ impl ProductRepository for Connection {
         )?;
         Ok(())
     }
+
+    fn get_all_products(&self) -> Result<Vec<Product>> {
+        let mut stmt =
+            self.prepare("SELECT id, name, base_price, created_at, updated_at FROM products")?;
+        let mut products = vec![];
+        let rows = stmt.query_map([], |row| {
+            let created_at: String = row.get(3)?;
+            let updated_at: String = row.get(4)?;
+
+            // Parse the strings into DateTime<Utc>
+            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc)) // Convert to UTC
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?;
+
+            let updated_at = chrono::DateTime::parse_from_rfc3339(&updated_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc)) // Convert to UTC
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?;
+
+            Ok(Product {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                base_price: row.get(2)?,
+                created_at,
+                updated_at,
+            })
+        })?;
+
+        for row in rows {
+            products.push(row?);
+        }
+        return Ok(products);
+    }
 }
-
-// pub fn run_sqlite() -> Result<()> {
-//     let conn = Connection::open("./db.db3")?;
-
-//     conn.execute(
-//         "CREATE TABLE person (
-//             id   INTEGER PRIMARY KEY,
-//             name TEXT NOT NULL,
-//             data BLOB
-//         )",
-//         (), // empty list of parameters.
-//     )?;
-//     let me = Person {
-//         id: 0,
-//         name: "Steven".to_string(),
-//         data: None,
-//     };
-//     conn.execute(
-//         "INSERT INTO person (name, data) VALUES (?1, ?2)",
-//         (&me.name, &me.data),
-//     )?;
-
-//     let mut stmt = conn.prepare("SELECT id, name, data FROM person")?;
-//     let person_iter = stmt.query_map([], |row| {
-//         Ok(Person {
-//             id: row.get(0)?,
-//             name: row.get(1)?,
-//             data: row.get(2)?,
-//         })
-//     })?;
-
-//     for person in person_iter {
-//         println!("Found person {:?}", person.unwrap());
-//     }
-//     Ok(())
-// }

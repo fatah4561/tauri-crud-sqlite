@@ -83,7 +83,11 @@ async fn setup(app: AppHandle) -> Result<(), ()> {
         eprintln!("Error creating db connection: {err}");
         process::exit(1)
     }); 
-    sqlite::table_migrations(&conn);
+
+    sqlite::table_migrations(&conn).unwrap_or_else(|err| {
+        eprintln!("Error migrating db: {err}");
+        process::exit(1)
+    });
 
     let product = sqlite::Product { 
         id: 0,
@@ -96,6 +100,17 @@ async fn setup(app: AppHandle) -> Result<(), ()> {
     match conn.insert_product(product) {
         Ok(_) => println!("Product created successfully"),
         Err(e) => eprintln!("Error creating product: {}", e),
+    }
+
+    let products = conn.get_all_products();
+
+    match products {
+        Ok(products) => {
+            for product in products {
+                println!("Product: {:?}", product);
+            }
+        },
+        Err(e) => eprintln!("Error getting products: {}", e),
     }
 
     // Fake performing some heavy action for 3 seconds
