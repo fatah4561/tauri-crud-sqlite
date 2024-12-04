@@ -1,63 +1,6 @@
 use chrono;
 use rusqlite::{params, Connection, Result};
-
-#[derive(Debug)]
-pub struct Product {
-    pub id: i32,
-    pub name: String,
-    pub base_price: i32,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug)]
-pub struct ProductCategory {
-    id: i32,
-    name: String,
-    product_id: i32,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-pub fn new_db() -> Result<Connection, rusqlite::Error> {
-    let conn = Connection::open("./db.db3");
-    return conn;
-}
-
-pub fn table_migrations(conn: &Connection) -> Result<()> {
-    match conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            base_price INTEGER NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    ",
-        (),
-    ) {
-        Ok(_) => println!("Products created successfully"),
-        Err(e) => println!("Error creating table: {}", e),
-    }
-
-    match conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS product_categories (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    ",
-        (),
-    ) {
-        Ok(_) => println!("Product categories created successfully"),
-        Err(e) => println!("Error creating table: {}", e),
-    }
-
-    Ok(())
-}
+use crate::models::{Product, ProductCategory};
 
 pub trait ProductRepository {
     fn insert_product(&self, product: Product) -> Result<()>;

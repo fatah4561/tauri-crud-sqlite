@@ -1,5 +1,11 @@
 // Import functionalities we'll be using
-mod sqlite;
+pub mod models;
+pub mod configs;
+pub mod migrations;
+pub mod repositories;
+pub mod services;
+pub mod seeders;
+
 use chrono;
 use std::process;
 use std::sync::Mutex;
@@ -7,7 +13,8 @@ use tauri::async_runtime::spawn;
 use tauri::{AppHandle, Manager, State};
 use tokio::time::{sleep, Duration};
 
-use sqlite::ProductRepository;
+// traits import
+use repositories::ProductRepository;
 
 // Create a struct we'll use to track the completion of
 // setup related tasks
@@ -79,17 +86,17 @@ async fn set_complete(
 async fn setup(app: AppHandle) -> Result<(), ()> {
     
     println!("Performing really heavy backend setup task...");
-    let conn = sqlite::new_db().unwrap_or_else(|err| {
+    let conn = configs::new_sqlite_db().unwrap_or_else(|err| {
         eprintln!("Error creating db connection: {err}");
         process::exit(1)
     }); 
 
-    sqlite::table_migrations(&conn).unwrap_or_else(|err| {
+    migrations::migrate(&conn).unwrap_or_else(|err| {
         eprintln!("Error migrating db: {err}");
         process::exit(1)
     });
 
-    let product = sqlite::Product { 
+    let product = models::Product { 
         id: 0,
         name: "test".to_string(), 
         base_price: 0, 
