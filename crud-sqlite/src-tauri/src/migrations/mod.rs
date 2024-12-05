@@ -1,7 +1,8 @@
-use rusqlite::{Connection, Result};
+use sqlx::{Pool, Sqlite, Error};
 
-pub fn migrate(conn: &Connection) -> Result<()> {
-    match conn.execute(
+pub async fn migrate(pool: &Pool<Sqlite>) -> Result<(), Error> {
+    // Create `products` table
+    match sqlx::query(
         "
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY,
@@ -10,14 +11,17 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    ",
-        (),
-    ) {
-        Ok(_) => println!("Products created successfully"),
-        Err(e) => println!("Error creating table: {}", e),
+        "
+    )
+    .execute(pool)
+    .await
+    {
+        Ok(_) => println!("Products table created successfully"),
+        Err(e) => eprintln!("Error creating products table: {}", e),
     }
 
-    match conn.execute(
+    // Create `product_categories` table
+    match sqlx::query(
         "
         CREATE TABLE IF NOT EXISTS product_categories (
             id INTEGER PRIMARY KEY,
@@ -25,11 +29,13 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    ",
-        (),
-    ) {
-        Ok(_) => println!("Product categories created successfully"),
-        Err(e) => println!("Error creating table: {}", e),
+        "
+    )
+    .execute(pool)
+    .await
+    {
+        Ok(_) => println!("Product categories table created successfully"),
+        Err(e) => eprintln!("Error creating product categories table: {}", e),
     }
 
     Ok(())

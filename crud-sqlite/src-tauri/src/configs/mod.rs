@@ -1,6 +1,9 @@
-use rusqlite::{Connection, Result};
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
 
-pub fn new_sqlite_db() -> Result<Connection, rusqlite::Error> {
-    let conn = Connection::open("../db.db3");
+pub async fn new_sqlx_db() -> Result<SqlitePool, sqlx::Error> {
+    let connect_options = SqliteConnectOptions::new()
+        .filename("../db.db3")
+        .create_if_missing(true);
+    let conn = sqlx::sqlite::SqlitePool::connect_with(connect_options).await;
     return conn;
 }

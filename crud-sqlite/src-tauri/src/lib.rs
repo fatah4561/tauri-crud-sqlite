@@ -1,20 +1,18 @@
 // Import functionalities we'll be using
-pub mod models;
 pub mod configs;
 pub mod migrations;
+pub mod models;
 pub mod repositories;
-pub mod services;
 pub mod seeders;
+pub mod services;
 
-use chrono;
 use std::process;
 use std::sync::Mutex;
 use tauri::async_runtime::spawn;
 use tauri::{AppHandle, Manager, State};
-use tokio::time::{sleep, Duration};
 
 // traits import
-use repositories::ProductRepository;
+use repositories::product::ProductRepository;
 
 // Create a struct we'll use to track the completion of
 // setup related tasks
@@ -84,33 +82,44 @@ async fn set_complete(
 
 // An async function that does some heavy setup task
 async fn setup(app: AppHandle) -> Result<(), ()> {
-    
     println!("Performing really heavy backend setup task...");
-    let conn = configs::new_sqlite_db().unwrap_or_else(|err| {
-        eprintln!("Error creating db connection: {err}");
-        process::exit(1)
-    }); 
+    // let conn = configs::new_sqlite_db().unwrap_or_else(|err| {
+    //     eprintln!("Error creating db connection: {err}");
+    //     process::exit(1)
+    // });
 
-    migrations::migrate(&conn).unwrap_or_else(|err| {
-        eprintln!("Error migrating db: {err}");
+    let pool = configs::new_sqlx_db().await.unwrap_or_else(|err| {
+        eprintln!("Error creating db connection: {err}");
         process::exit(1)
     });
 
-    let product = models::Product { 
+    // Perform migrations and handle errors with unwrap_or_else
+    migrations::migrate(&pool).await.unwrap_or_else(|err| {
+        eprintln!("Error migrating db: {err}");
+        process::exit(1);
+    });
+
+    // migrations::migrate(&conn).unwrap_or_else(|err| {
+    //     eprintln!("Error migrating db: {err}");
+    //     process::exit(1)
+    // });
+
+    let product = models::Product {
         id: 0,
-        name: "test".to_string(), 
-        base_price: 0, 
-        created_at: chrono::Utc::now(), 
+        name: "test".to_string(),
+        base_price: 0,
+        created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now()
     };
 
-    match conn.insert_product(product) {
+    let product_service = services::product::ProductService::new(&pool);
+
+    match product_service.product_repository.insert(product).await {
         Ok(_) => println!("Product created successfully"),
         Err(e) => eprintln!("Error creating product: {}", e),
-    }
+    };
 
-    let products = conn.get_all_products();
-
+    let products = product_service.product_repository.get_all().await;
     match products {
         Ok(products) => {
             for product in products {
@@ -120,9 +129,12 @@ async fn setup(app: AppHandle) -> Result<(), ()> {
         Err(e) => eprintln!("Error getting products: {}", e),
     }
 
-    // Fake performing some heavy action for 3 seconds
-    // sqlite::run_sqlite();
-    sleep(Duration::from_secs(3)).await;
+    let delete = product_service.product_repository.delete(1).await;
+    match delete {
+        Ok(_) => println!("Product deleted successfully"),
+        Err(e) => eprintln!("Error deleting product: {}", e),
+    }
+
     println!("Backend setup task completed!");
     // Set the backend task as being completed
     // Commands can be ran as regular functions as long as you take
